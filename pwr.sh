@@ -118,11 +118,11 @@ services:
   pwr-validator-node:
     image: openjdk:latest
     container_name: pwr-validator-node
-volumes:
+    volumes:
       - ./validator.jar:/app/validator.jar
       - ./config.json:/app/config.json
-      command: ["java", "-jar", "/app/validator.jar", "password", "$server_ip", "--compression-level", "0"]
-       ports:
+    command: ["java", "-jar", "/app/validator.jar", "password", "$server_ip", "--compression-level", "0"]
+    ports:
       - "8231:8231"
       - "8085:8085"
       - "7621:7621/udp"
