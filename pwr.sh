@@ -97,6 +97,7 @@ fi
 
 message "Please enter your desired password:" "Silakan masukkan kata sandi yang kamu inginkan:"
 read -s password
+echo $password > password
 
 message "Please enter your server IP address:" "Silakan masukkan alamat IP server kamu:"
 read -p "Server IP: " server_ip
@@ -107,7 +108,7 @@ read -p "(Y/N): " import_key
 if [ "$import_key" == "Y" ] || [ "$import_key" == "y" ]; then
     message "Please enter your private key:" "Silakan masukkan private key kamu:"
     read -s private_key
-    sudo java -jar validator.jar --import-key $private_key $password
+    sudo java -jar validator.jar --import-key $private_key password
 fi
 
 message "Creating new Docker Compose file..." "Membuat file Docker Compose baru..."
@@ -117,11 +118,11 @@ services:
   pwr-validator-node:
     image: openjdk:latest
     container_name: pwr-validator-node
-    volumes:
+volumes:
       - ./validator.jar:/app/validator.jar
       - ./config.json:/app/config.json
-    command: ["java", "-jar", "/app/validator.jar", "$password", "$server_ip", "--compression-level", "0"]
-    ports:
+      command: ["java", "-jar", "/app/validator.jar", "password", "$server_ip", "--compression-level", "0"]
+       ports:
       - "8231:8231"
       - "8085:8085"
       - "7621:7621/udp"
