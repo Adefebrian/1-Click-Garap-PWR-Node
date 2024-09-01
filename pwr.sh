@@ -1,10 +1,12 @@
 #!/bin/bash
 
+# Colors for text formatting
 CYAN='\033[0;36m'
-YELLOW='\033[0;33m'
+YELLOW='\033[1;33m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
+# Opening Information
 echo -e "${CYAN}${BOLD}********************************************${NC}"
 echo -e "${CYAN}${BOLD}*     1 Click PWR Node Setup by           *${NC}"
 echo -e "${CYAN}${BOLD}*           Airdrop Sultan                *${NC}"
@@ -14,124 +16,109 @@ echo -e "${YELLOW}${BOLD}This entire code is created by Brian (x.com/brianeedsle
 echo -e "${YELLOW}${BOLD}Make sure you have joined Airdrop Sultan at t.me/airdropsultanindonesia${NC}"
 echo ""
 
-echo "Choose your language / Pilih bahasa:"
+# Language Selection
+echo "Please select your language / Silakan pilih bahasa kamu:"
 echo "1) English"
 echo "2) Bahasa Indonesia"
-read -p "Enter 1 or 2 / Masukkan 1 atau 2: " language
+read -p "Choose an option (1 or 2): " lang
 
-if [ "$language" -eq 1 ]; then
-    lang="en"
-elif [ "$language" -eq 2 ]; then
-    lang="id"
-else
-    echo "Invalid input. Defaulting to English."
-    lang="en"
-fi
-
+# Function for displaying messages in both languages
 message() {
-    if [ "$lang" == "en" ]; then
-        echo -e "$1"
-    else
-        echo -e "$2"
-    fi
+  if [ "$lang" -eq 1 ]; then
+    echo -e "${YELLOW}${BOLD}$1${NC}"
+  else
+    echo -e "${YELLOW}${BOLD}$2${NC}"
+  fi
 }
 
-install_docker() {
-    message "Do you want to install Docker? (Y/N)" "Apakah kamu ingin menginstal Docker? (Y/N)"
-    read -p "(Y/N): " install_docker
+# Operation Selection
+echo "Please select an operation / Silakan pilih operasi:"
+echo "1) Install"
+echo "2) Update"
+read -p "Choose an option (1 or 2): " operation
 
-    if [ "$install_docker" == "Y" ] || [ "$install_docker" == "y" ]; then
-        sudo apt-get install -y docker.io
+if [ "$operation" -eq 1 ]; then
+    # Install Process
+    echo -e "${YELLOW}${BOLD}Starting the installation process...${NC}"
+    
+    # Update OS
+    sudo apt update
+
+    # Install Java
+    sudo apt install -y default-jdk
+
+    # Download Validator Node Software and Config File
+    wget https://github.com/pwrlabs/PWR-Validator-Node/raw/main/validator.jar
+    wget https://github.com/pwrlabs/PWR-Validator-Node/raw/main/config.json
+    
+    # Create Password File
+    if [ "$lang" -eq 1 ]; then
+        read -sp "Enter your desired password for the node: " NODE_PASSWORD
     else
-        message "Skipping Docker installation." "Melewatkan instalasi Docker."
+        read -sp "Masukkan kata sandi yang kamu inginkan untuk node: " NODE_PASSWORD
     fi
-}
+    echo "$NODE_PASSWORD" > password
 
-install_docker_compose() {
-    message "Do you want to install Docker Compose? (Y/N)" "Apakah kamu ingin menginstal Docker Compose? (Y/N)"
-    read -p "(Y/N): " install_docker_compose
-
-    if [ "$install_docker_compose" == "Y" ] || [ "$install_docker_compose" == "y" ]; then
-        sudo apt-get install -y docker-compose
+    # Import Validator Key (Optional)
+    if [ "$lang" -eq 1 ]; then
+        read -p "Do you have a private key to import? (y/n): " import_key
     else
-        message "Skipping Docker Compose installation." "Melewatkan instalasi Docker Compose."
+        read -p "Apakah kamu memiliki private key untuk diimpor? (y/n): " import_key
     fi
-}
+    if [ "$import_key" = "y" ]; then
+      if [ "$lang" -eq 1 ]; then
+          read -p "Enter your private key: " PRIVATE_KEY
+      else
+          read -p "Masukkan private key kamu: " PRIVATE_KEY
+      fi
+      sudo java -jar validator.jar --import-key "$PRIVATE_KEY" password
+    fi
 
-install_java() {
-    message "Do you want to install openjdk-19-jdk-headless? (Y/N)" "Apakah kamu ingin menginstal openjdk-19-jdk-headless? (Y/N)"
-    read -p "(Y/N): " install_java
-
-    if [ "$install_java" == "Y" ] || [ "$install_java" == "y" ]; then
-        sudo apt update
-        sudo add-apt-repository ppa:openjdk-r/ppa
-        sudo apt update
-        sudo apt install -y openjdk-19-jdk-headless
+    # Run the Node in the Background
+    if [ "$lang" -eq 1 ]; then
+        read -p "Enter your server IP address: " SERVER_IP
     else
-        message "Skipping openjdk-19-jdk-headless installation." "Melewatkan instalasi openjdk-19-jdk-headless."
+        read -p "Masukkan alamat IP server kamu: " SERVER_IP
     fi
-}
+    nohup sudo java -jar validator.jar password "$SERVER_IP" --compression-level 0 &
 
-install_docker
-install_docker_compose
-install_java
+    # Confirmation message after starting node
+    message "Node validator has been successfully started in the background." "Node validator telah berhasil dimulai di latar belakang."
+    
+elif [ "$operation" -eq 2 ]; then
+    # Update Process
+    echo -e "${YELLOW}${BOLD}Starting the update process...${NC}"
+    
+    # Auto-update system
+    while true; do
+      # Check for updates
+      wget -q --spider https://github.com/pwrlabs/PWR-Validator-Node/raw/main/validator.jar
+      if [ $? -eq 0 ]; then
+        message "Update found! Updating the validator node..." "Pembaruan ditemukan! Memperbarui node validator..."
+        
+        # Stop the old validator
+        sudo pkill java
 
-message "Opening required TCP and UDP ports..." "Membuka port TCP dan UDP yang diperlukan..."
-sudo ufw allow 8231/tcp
-sudo ufw allow 8085/tcp
-sudo ufw allow 7621/udp
+        # Remove old files
+        sudo rm -rf validator.jar config.json blocks
 
-message "Removing old Docker Compose file..." "Menghapus file Docker Compose lama..."
-rm -f docker-compose.yml
+        # Install new versions
+        wget https://github.com/pwrlabs/PWR-Validator-Node/raw/main/validator.jar
+        wget https://github.com/pwrlabs/PWR-Validator-Node/raw/main/config.json
 
-message "Downloading validator software..." "Mengunduh software validator..."
-wget https://github.com/pwrlabs/PWR-Validator-Node/raw/main/validator.jar
+        # Run the updated node in the background
+        nohup sudo java -jar validator.jar password "$SERVER_IP" --compression-level 0 &
+        
+        message "Validator node updated and restarted successfully." "Node validator berhasil diperbarui dan dimulai ulang."
+      fi
 
-message "Downloading config file..." "Mengunduh file konfigurasi..."
-wget https://github.com/pwrlabs/PWR-Validator-Node/raw/main/config.json
+      # Delay before the next update check
+      sleep 86400 # Check once a day (86400 seconds)
+    done
 
-if [ ! -f "config.json" ]; then
-    message "Error: config.json file not found!" "Error: file config.json tidak ditemukan!"
-    exit 1
+else
+    message "Invalid option selected." "Opsi tidak valid dipilih."
 fi
 
-message "Please enter your desired password:" "Silakan masukkan kata sandi yang kamu inginkan:"
-read -s password
-echo $password > password
-
-message "Please enter your server IP address:" "Silakan masukkan alamat IP server kamu:"
-read -p "Server IP: " server_ip
-
-message "Do you want to import a private key? (Y/N)" "Apakah kamu ingin mengimpor private key? (Y/N)"
-read -p "(Y/N): " import_key
-
-if [ "$import_key" == "Y" ] || [ "$import_key" == "y" ]; then
-    message "Please enter your private key:" "Silakan masukkan private key kamu:"
-    read -s private_key
-    sudo java -jar validator.jar --import-key $private_key password
-fi
-
-message "Creating new Docker Compose file..." "Membuat file Docker Compose baru..."
-cat <<EOF > docker-compose.yml
-version: '3'
-services:
-  pwr-validator-node:
-    image: openjdk:latest
-    container_name: pwr-validator-node
-    volumes:
-      - ./validator.jar:/app/validator.jar
-      - ./config.json:/app/config.json
-    command: ["java", "-jar", "/app/validator.jar", "password", "$server_ip", "--compression-level", "0"]
-    ports:
-      - "8231:8231"
-      - "8085:8085"
-      - "7621:7621/udp"
-    restart: unless-stopped
-EOF
-
-message "Starting PWR Validator Node in Docker..." "Memulai PWR Validator Node di Docker..."
-docker-compose up -d
-
-message "PWR Validator Node setup complete and running in Docker!" "PWR Validator Node berhasil dipasang dan berjalan di Docker!"
-echo ""
+# Closing Information
 message "For support, you don’t need to donate. Just follow me on x.com/brianeedsleep and join t.me/airdropsultanindonesia" "Untuk dukungan, kamu tidak perlu berdonasi. Cukup ikuti aku di x.com/brianeedsleep dan bergabunglah dengan t.me/airdropsultanindonesia"
